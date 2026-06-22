@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>留言審查 - ScholarLink 系統管理員</title>
+  <script src="auth.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap');
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --surface: #0b1220;
+      --accent: #7dd3fc;
+      --accent-strong: #22d3ee;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --shadow: 0 24px 60px rgba(0,0,0,0.35);
+      --radius: 14px;
+      --danger: rgba(244,63,94,0.15);
+      --danger-text: #fda4af;
+      --danger-border: rgba(244,63,94,0.3);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Source Sans 3', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(56,189,248,0.06), transparent 25%),
+                  radial-gradient(circle at 80% 10%, rgba(14,165,233,0.07), transparent 26%),
+                  radial-gradient(circle at 50% 80%, rgba(56,189,248,0.05), transparent 30%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(12px);
+      background: rgba(15,23,42,0.8);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; letter-spacing: 0.5px;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    .brand .dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      box-shadow: 0 0 18px rgba(125,211,252,0.6);
+    }
+    nav a {
+      color: var(--muted); text-decoration: none;
+      margin-left: 18px; font-weight: 600;
+      transition: color 0.2s ease;
+    }
+    nav a:hover { color: var(--accent-strong); }
+    nav a.active { color: var(--accent-strong); }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px 22px 60px; }
+    .hero {
+      margin: 28px 0 20px; padding: 26px; border-radius: 16px;
+      background: linear-gradient(120deg, rgba(244,63,94,0.2), rgba(8,47,73,0.65)),
+                  linear-gradient(180deg, rgba(15,23,42,0.9), rgba(15,23,42,0.8));
+      border: 1px solid rgba(244,63,94,0.3);
+      box-shadow: var(--shadow); display: grid; gap: 8px;
+    }
+    .hero h1 { margin: 0; font-size: 28px; letter-spacing: 0.3px; }
+    .hero p { margin: 0; color: var(--muted); }
+    .card {
+      background: linear-gradient(145deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 18px 20px;
+      box-shadow: var(--shadow); margin-bottom: 18px;
+    }
+    .section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px; font-weight: 700;
+      margin: 0 0 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .pill {
+      padding: 4px 10px; border-radius: 999px; font-size: 12px;
+      background: rgba(125,211,252,0.15); color: var(--accent-strong);
+      border: 1px solid rgba(125,211,252,0.35);
+    }
+    .pill.danger {
+      background: rgba(244,63,94,0.15); color: #fda4af;
+      border-color: rgba(244,63,94,0.3);
+    }
+    .msg-list { display: grid; gap: 14px; }
+    .msg-item {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px 18px; background: rgba(255,255,255,0.02);
+      position: relative; transition: border-color 0.2s, background 0.2s;
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .msg-item:hover { border-color: rgba(125,211,252,0.25); }
+    .msg-item.selected {
+      border-color: rgba(34,211,238,0.45);
+      background: rgba(34,211,238,0.05);
+    }
+    .msg-check {
+      width: 16px; height: 16px; flex-shrink: 0; margin-top: 3px;
+      cursor: pointer; accent-color: var(--accent-strong);
+    }
+    .msg-body { flex: 1; min-width: 0; }
+    .msg-header {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 12px; margin-bottom: 8px;
+    }
+    .msg-title { font-size: 16px; font-weight: 700; color: var(--accent); margin: 0; }
+    .msg-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .msg-content {
+      color: var(--text); font-size: 14px; margin: 8px 0;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .msg-reply {
+      margin-top: 10px; padding: 10px 14px;
+      background: rgba(34,211,238,0.06); border-radius: 10px;
+      border-left: 3px solid var(--accent-strong);
+      font-size: 13px; color: var(--muted);
+    }
+    .msg-reply strong { color: var(--accent-strong); }
+    .btn-del {
+      padding: 7px 13px; border-radius: 8px; border: 1px solid var(--danger-border);
+      background: var(--danger); color: var(--danger-text);
+      cursor: pointer; font-size: 13px; font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+      transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-del:hover { background: rgba(244,63,94,0.28); }
+    .empty { text-align: center; color: var(--muted); padding: 32px 0; }
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+    .stat-badge {
+      padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      background: rgba(125,211,252,0.1); border: 1px solid rgba(125,211,252,0.2);
+      color: var(--accent-strong);
+    }
+
+    /* ── 批量工具列 ─────────────────────────────────────────── */
+    .batch-toolbar {
+      display: none; align-items: center; gap: 12px;
+      padding: 10px 14px; margin-bottom: 14px;
+      border-radius: 10px;
+      background: rgba(125,211,252,0.05);
+      border: 1px solid rgba(125,211,252,0.15);
+    }
+    .batch-toolbar input[type="checkbox"] {
+      width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent-strong);
+    }
+    .batch-toolbar label { cursor: pointer; font-size: 13px; color: var(--muted); }
+    .batch-count { font-size: 13px; color: var(--muted); }
+    .btn-batch-reply {
+      margin-left: auto;
+      padding: 8px 16px; border-radius: 8px;
+      background: rgba(34,211,238,0.1); color: var(--accent-strong);
+      border: 1px solid rgba(34,211,238,0.3);
+      cursor: pointer; font-size: 13px; font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif; transition: all 0.2s;
+    }
+    .btn-batch-reply:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-batch-reply:not(:disabled):hover { background: rgba(34,211,238,0.22); }
+
+    /* ── 批量回覆 Modal ─────────────────────────────────────── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+      z-index: 100; align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #111827; border: 1px solid rgba(125,211,252,0.25);
+      border-radius: 16px; padding: 28px; width: 500px; max-width: 92vw;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.55);
+    }
+    .modal-title {
+      font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700;
+      margin: 0 0 6px;
+    }
+    .modal-desc { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+    .modal-label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    .modal-textarea {
+      width: 100%; min-height: 120px; padding: 10px 12px;
+      border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text);
+      font-size: 14px; font-family: inherit; resize: vertical;
+      transition: border-color 0.2s;
+    }
+    .modal-textarea:focus { outline: none; border-color: var(--accent-strong); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+    .btn-cancel {
+      padding: 9px 16px; border-radius: 8px; background: transparent;
+      color: var(--muted); border: 1px solid var(--border); cursor: pointer; font-size: 13px;
+    }
+    .btn-confirm {
+      padding: 9px 18px; border-radius: 8px;
+      background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+      color: #0b1220; border: none; cursor: pointer; font-size: 13px; font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif; transition: opacity 0.2s;
+    }
+    .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    footer {
+      margin-top: 40px; color: var(--muted); font-size: 13px;
+      text-align: center; padding: 20px 0 40px;
+    }
+    @media (max-width: 720px) {
+      .hero h1 { font-size: 22px; }
+      nav a { display: none; }
+      .msg-header { flex-direction: column; }
+      .btn-batch-reply span { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <div class="brand"><span class="dot"></span>ScholarLink <span style="font-size:14px; color: var(--accent-strong); margin-left:8px;">系統管理員</span></div>
+      <nav>
+        <a href="admin_scholarships.html">獎助管理</a>
+        <a href="admin_announcements.html">公告管理</a>
+        <a href="admin_identity_proof.html">身份文件管理</a>
+        <a href="admin_accounts.html">帳號管理</a>
+        <a href="admin_messages.html" class="active">留言審查</a>
+        <a href="admin_memos.html">備忘錄</a>
+        <a href="/scholarship/pages/login.html">登出</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <section class="hero">
+      <h1>🛡️ 留言審查</h1>
+      <p>審查全站公開留言，刪除不當或違規內容，或批量回覆關切訊息。本頁面僅顯示「公開（Public）」留言。</p>
+    </section>
+
+    <div class="stats">
+      <span class="stat-badge" id="totalCount">載入中...</span>
+    </div>
+
+    <section class="card">
+      <div class="section-title">
+        公開留言列表 <span class="pill danger">Public 僅限</span>
+      </div>
+
+      <!-- 批量操作工具列（有留言時顯示） -->
+      <div class="batch-toolbar" id="batchToolbar">
+        <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+        <label for="selectAll">全選</label>
+        <span class="batch-count" id="batchCount">已選 0 則</span>
+        <button class="btn-batch-reply" id="btnBatchReply" disabled onclick="openBulkReplyModal()">
+          💬 <span>批量回覆已選留言</span>
+        </button>
+      </div>
+
+      <div class="msg-list" id="msgList">
+        <div class="empty">載入中...</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 批量回覆 Modal -->
+  <div class="modal-overlay" id="bulkReplyModal">
+    <div class="modal-box">
+      <div class="modal-title">💬 批量回覆留言</div>
+      <p class="modal-desc" id="bulkReplyDesc">將以下回覆內容同時套用到所有已勾選的留言。</p>
+      <label class="modal-label" for="bulkReplyContent">回覆內容 *</label>
+      <textarea class="modal-textarea" id="bulkReplyContent" placeholder="輸入要統一回覆的內容..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeBulkReplyModal()">取消</button>
+        <button class="btn-confirm" id="btnConfirmBulkReply" onclick="submitBulkReply()">確認送出</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    ScholarLink 系統管理員端 © 2026 ·
+    <a href="/scholarship/pages/login.html" style="color:var(--accent-strong); text-decoration:none;">返回登入頁</a>
+  </footer>
+
+  <script>
+    const API_BASE = '/scholarship/api';
+    let currentUser = null;
+
+    // ── 載入留言列表 ────────────────────────────────────────────
+    async function loadMessages() {
+      try {
+        const res = await fetch(`${API_BASE}/messages?viewer_id=${encodeURIComponent(currentUser.id)}`);
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || '載入失敗');
+
+        // 管理員只顯示 Public 留言
+        const publicMsgs = (result.data || []).filter(m => m.visibility === 'Public');
+        document.getElementById('totalCount').textContent = `共 ${publicMsgs.length} 則公開留言`;
+        renderMessages(publicMsgs);
+      } catch (err) {
+        document.getElementById('msgList').innerHTML =
+          `<div class="empty" style="color:#f87171;">${err.message || '載入失敗'}</div>`;
+        document.getElementById('totalCount').textContent = '載入失敗';
+      }
+    }
+
+    // ── 渲染留言列表（含勾選框）────────────────────────────────
+    function renderMessages(items) {
+      const list    = document.getElementById('msgList');
+      const toolbar = document.getElementById('batchToolbar');
+
+      if (!items.length) {
+        list.innerHTML = '<div class="empty">目前沒有公開留言</div>';
+        toolbar.style.display = 'none';
+        return;
+      }
+
+      toolbar.style.display = 'flex';
+      // 重置全選狀態
+      document.getElementById('selectAll').checked = false;
+      document.getElementById('batchCount').textContent = '已選 0 則';
+      document.getElementById('btnBatchReply').disabled = true;
+
+      list.innerHTML = items.map(m => {
+        const createdAt = m.created_at ? new Date(m.created_at).toLocaleString('zh-TW') : '-';
+        const content   = escHtml(m.content || '');
+        const replyHtml = m.reply_content
+          ? `<div class="msg-reply">
+               <strong>💬 ${escHtml(m.reply_user_name || '回覆者')}</strong>（${m.replied_at ? new Date(m.replied_at).toLocaleString('zh-TW') : '-'}）<br>
+               ${escHtml(m.reply_content)}
+             </div>`
+          : '';
+        return `
+          <div class="msg-item" id="msg_${m.id}">
+            <input type="checkbox" class="msg-check" data-id="${m.id}" onchange="onCheckChange()">
+            <div class="msg-body">
+              <div class="msg-header">
+                <div>
+                  <p class="msg-title">${escHtml(m.title || '（無標題）')}</p>
+                  <p class="msg-meta">
+                    🧑 ${escHtml(m.author_name || m.user_id)} &nbsp;·&nbsp; 🕐 ${createdAt}
+                  </p>
+                </div>
+                <button class="btn-del" onclick="deleteMessage('${m.id}', this)">❌ 刪除違規留言</button>
+              </div>
+              <div class="msg-content">${content}</div>
+              ${replyHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── 刪除留言 ───────────────────────────────────────────────
+    async function deleteMessage(msgId, btn) {
+      if (!confirm('確定要刪除這則違規留言嗎？此操作無法復原。')) return;
+      btn.disabled = true;
+      btn.textContent = '刪除中...';
+      try {
+        const res = await fetch(`${API_BASE}/messages/${msgId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: currentUser.id })
+        });
+        const result = await res.json();
+        if (!res.ok || !result.success) throw new Error(result.message || '刪除失敗');
+        btn.closest('.msg-item').remove();
+        // 更新計數
+        const remaining = document.querySelectorAll('.msg-item').length;
+        document.getElementById('totalCount').textContent = `共 ${remaining} 則公開留言`;
+        if (remaining === 0) {
+          document.getElementById('msgList').innerHTML = '<div class="empty">目前沒有公開留言</div>';
+          document.getElementById('batchToolbar').style.display = 'none';
+        }
+        // 重新計算已選數（被刪那則的 checkbox 已消失）
+        onCheckChange();
+      } catch (err) {
+        alert(err.message || '刪除失敗');
+        btn.disabled = false;
+        btn.textContent = '❌ 刪除違規留言';
+      }
+    }
+
+    // ── 勾選變動 ───────────────────────────────────────────────
+    function onCheckChange() {
+      const all     = document.querySelectorAll('.msg-check');
+      const checked = document.querySelectorAll('.msg-check:checked');
+      document.getElementById('selectAll').checked = all.length > 0 && checked.length === all.length;
+      document.getElementById('batchCount').textContent = `已選 ${checked.length} 則`;
+      document.getElementById('btnBatchReply').disabled = checked.length === 0;
+      // 高亮選中列
+      all.forEach(cb => cb.closest('.msg-item').classList.toggle('selected', cb.checked));
+    }
+
+    // ── 全選 / 全不選 ──────────────────────────────────────────
+    function toggleSelectAll(masterCb) {
+      document.querySelectorAll('.msg-check').forEach(cb => {
+        cb.checked = masterCb.checked;
+        cb.closest('.msg-item').classList.toggle('selected', masterCb.checked);
+      });
+      const count = masterCb.checked ? document.querySelectorAll('.msg-check').length : 0;
+      document.getElementById('batchCount').textContent = `已選 ${count} 則`;
+      document.getElementById('btnBatchReply').disabled = count === 0;
+    }
+
+    // ── 開啟批量回覆 Modal ─────────────────────────────────────
+    function openBulkReplyModal() {
+      const ids = getCheckedIds();
+      if (ids.length === 0) { alert('請先勾選至少一則留言'); return; }
+      document.getElementById('bulkReplyDesc').textContent =
+        `將以下回覆內容同時套用到已勾選的 ${ids.length} 則留言。`;
+      document.getElementById('bulkReplyContent').value = '';
+      document.getElementById('bulkReplyModal').classList.add('open');
+    }
+
+    function closeBulkReplyModal() {
+      document.getElementById('bulkReplyModal').classList.remove('open');
+    }
+
+    // ── 送出批量回覆 ───────────────────────────────────────────
+    async function submitBulkReply() {
+      const content = document.getElementById('bulkReplyContent').value.trim();
+      if (!content) { alert('請輸入回覆內容'); return; }
+
+      const ids = getCheckedIds();
+      if (ids.length === 0) { alert('請先勾選至少一則留言'); return; }
+
+      const btn = document.getElementById('btnConfirmBulkReply');
+      btn.disabled = true;
+      btn.textContent = '送出中...';
+
+      try {
+        // 以 'bulk' 作為 URL 佔位符，實際 ID 透過 message_ids 陣列傳入
+        const res = await fetch(`${API_BASE}/messages/bulk/reply`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reply_user_id: currentUser.id,
+            reply_content: content,
+            message_ids: ids
+          })
+        });
+        const result = await res.json();
+        if (!res.ok || !result.success) throw new Error(result.message || '回覆失敗');
+        closeBulkReplyModal();
+        alert(result.message || `已成功回覆 ${ids.length} 則留言`);
+        await loadMessages();
+      } catch (err) {
+        alert(err.message || '回覆失敗');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '確認送出';
+      }
+    }
+
+    // ── 取得所有已勾選的留言 ID ────────────────────────────────
+    function getCheckedIds() {
+      return [...document.querySelectorAll('.msg-check:checked')].map(cb => cb.dataset.id);
+    }
+
+    // ── HTML 跳脫 ──────────────────────────────────────────────
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      currentUser = checkAuth(['SystemAdministrator']);
+      if (!currentUser) return;
+      loadMessages();
+    });
+  </script>
+</body>
+</html>

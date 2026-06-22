@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScholarLink 登入</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 400px;
+      width: 100%;
+    }
+    h1 {
+      color: #667eea;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+    .alert {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .alert.error {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+    }
+    .alert.success {
+      background: #efe;
+      border: 1px solid #cfc;
+      color: #3c3;
+    }
+    .demo {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    .demo h3 {
+      margin-bottom: 10px;
+      color: #667eea;
+      font-size: 16px;
+    }
+    .demo code {
+      background: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: #667eea;
+      cursor: pointer;
+    }
+    .demo code:hover {
+      background: #667eea;
+      color: white;
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: white;
+      padding: 32px;
+      border-radius: 16px;
+      max-width: 360px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .modal-box h2 { color: #667eea; margin-bottom: 10px; font-size: 20px; }
+    .modal-box p { color: #555; margin-bottom: 20px; font-size: 14px; }
+    .otp-input {
+      width: 100%;
+      padding: 14px;
+      font-size: 28px;
+      letter-spacing: 12px;
+      text-align: center;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .otp-input:focus { outline: none; border-color: #667eea; }
+    .otp-error { color: #c33; font-size: 13px; margin-bottom: 12px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎓 ScholarLink</h1>
+    
+    <div class="alert" id="alert"></div>
+    
+    <form onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>使用者 ID</label>
+        <input type="text" id="userId" placeholder="學號/教師編號/管理員 ID" required>
+      </div>
+      <div class="form-group">
+        <label>密碼</label>
+        <input type="password" id="password" placeholder="請輸入密碼" required>
+      </div>
+
+      <button type="submit" class="btn">登入</button>
+      <p style="text-align:center;margin-top:12px;font-size:14px;">
+        <a href="#" onclick="openForgotPassword(event)" style="color:#667eea;text-decoration:none;">忘記密碼？</a>
+      </p>
+    </form>
+
+    <div class="demo">
+      <h3>測試帳號（點擊 ID 填入）</h3>
+      <p><strong>學生：</strong> <code onclick="fillUserId('S001')">S001</code> <code onclick="fillUserId('S002')">S002</code></p>
+      <p><strong>教師：</strong> <code onclick="fillUserId('T001')">T001</code></p>
+      <p><strong>管理員：</strong> <code onclick="fillUserId('ADMIN001')">ADMIN001</code></p>
+      <p><strong>機構：</strong> <code onclick="fillUserId('ORG001')">ORG001</code></p>
+      <p style="font-size:12px;color:#999;margin-top:8px;">預設密碼格式：帳號ID + 2025（例：S0012025）</p>
+    </div>
+  </div>
+
+  <!-- 忘記密碼 Modal（兩步驟：驗證身份 → 設定新密碼）-->
+  <div class="modal-overlay" id="forgotModal">
+    <div class="modal-box" style="max-width:400px;text-align:left;">
+      <!-- 步驟一：輸入帳號與 Email -->
+      <div id="forgotStep1">
+        <h2 style="color:#667eea;margin-bottom:8px;font-size:20px;">🔑 忘記密碼</h2>
+        <p style="color:#555;font-size:14px;margin-bottom:16px;">輸入帳號 ID 與綁定的 Email，驗證通過後即可直接設定新密碼。</p>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">帳號 ID</label>
+        <input type="text" id="forgotId" placeholder="例：S001、T001、ADMIN002" style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;margin-bottom:10px;">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">綁定 Email</label>
+        <input type="email" id="forgotEmail" placeholder="例：mockadmin@nuk.edu.tw" style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;margin-bottom:10px;">
+        <div id="forgotStep1Error" style="color:#c33;font-size:13px;margin-bottom:10px;display:none;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" onclick="verifyIdentity()" style="flex:1;">驗證身份</button>
+          <button class="btn" onclick="closeForgotPassword()" style="background:#f5f5f5;color:#333;flex:0 0 auto;padding:14px 16px;font-size:14px;">取消</button>
+        </div>
+      </div>
+      <!-- 步驟二：直接輸入新密碼 -->
+      <div id="forgotStep2" style="display:none;">
+        <h2 style="color:#667eea;margin-bottom:8px;font-size:20px;">🔒 設定新密碼</h2>
+        <p style="color:#555;font-size:14px;margin-bottom:16px;">身份驗證成功，請輸入您的新密碼。</p>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">新密碼</label>
+        <input type="password" id="newPassword" placeholder="至少 6 個字元" minlength="6"
+          style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;margin-bottom:10px;">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">確認新密碼</label>
+        <input type="password" id="confirmPassword" placeholder="再次輸入新密碼"
+          style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;margin-bottom:10px;">
+        <div id="forgotStep2Error" style="color:#c33;font-size:13px;margin-bottom:10px;display:none;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" onclick="submitResetPassword()" style="flex:1;">確認重設</button>
+          <button class="btn" onclick="closeForgotPassword()" style="background:#f5f5f5;color:#333;flex:0 0 auto;padding:14px 16px;font-size:14px;">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/scholarship/api';
+
+    function fillUserId(id) {
+      document.getElementById('userId').value = id;
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+
+      const userId   = document.getElementById('userId').value.trim();
+      const password = document.getElementById('password').value;
+      const alertEl  = document.getElementById('alert');
+      alertEl.style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: userId, password })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          const user = result.data;
+          sessionStorage.setItem('currentUser', JSON.stringify({
+            id: user.id,
+            name: user.name || '使用者',
+            type: user.type
+          }));
+
+          const redirects = {
+            Student: 'student_dashboard.html',
+            Teacher: 'teacher.html',
+            SystemAdministrator: 'admin_scholarships.html',
+            Organization: 'organization_applications.html'
+          };
+          const nextPage = redirects[user.type] || 'login.html';
+          const fullUrl  = `${window.location.origin}/scholarship/pages/${nextPage}`;
+
+          alertEl.className = 'alert success';
+          alertEl.textContent = `登入成功！歡迎 ${user.name || user.id}`;
+          alertEl.style.display = 'block';
+          setTimeout(() => { window.location.href = fullUrl; }, 600);
+
+        } else {
+          alertEl.className = 'alert error';
+          alertEl.textContent = result.message || '登入失敗';
+          alertEl.style.display = 'block';
+        }
+      } catch (error) {
+        alertEl.className = 'alert error';
+        alertEl.textContent = '無法連接伺服器，請確認後端服務已啟動';
+        alertEl.style.display = 'block';
+        console.error(error);
+      }
+    }
+
+    // ── 忘記密碼流程（直接重設，無 OTP）────────────────────────
+    let forgotUserId  = null;
+    let forgotEmail   = null;
+
+    function openForgotPassword(e) {
+      e.preventDefault();
+      forgotUserId = null;
+      forgotEmail  = null;
+      document.getElementById('forgotId').value       = '';
+      document.getElementById('forgotEmail').value    = '';
+      document.getElementById('newPassword').value    = '';
+      document.getElementById('confirmPassword').value = '';
+      document.getElementById('forgotStep1Error').style.display = 'none';
+      document.getElementById('forgotStep2Error').style.display = 'none';
+      document.getElementById('forgotStep1').style.display = 'block';
+      document.getElementById('forgotStep2').style.display = 'none';
+      document.getElementById('forgotModal').classList.add('active');
+    }
+
+    function closeForgotPassword() {
+      document.getElementById('forgotModal').classList.remove('active');
+    }
+
+    async function verifyIdentity() {
+      const id    = document.getElementById('forgotId').value.trim();
+      const email = document.getElementById('forgotEmail').value.trim();
+      const errEl = document.getElementById('forgotStep1Error');
+      errEl.style.display = 'none';
+
+      if (!id || !email) {
+        errEl.textContent = '請輸入帳號 ID 與 Email';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res  = await fetch(`${API_BASE}/users/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, email })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          forgotUserId = id;
+          forgotEmail  = email;
+          document.getElementById('forgotStep1').style.display = 'none';
+          document.getElementById('forgotStep2').style.display = 'block';
+        } else {
+          errEl.textContent = data.message || '帳號 ID 與 Email 不吻合';
+          errEl.style.display = 'block';
+        }
+      } catch (err) {
+        errEl.textContent = '伺服器錯誤，請稍後再試';
+        errEl.style.display = 'block';
+      }
+    }
+
+    async function submitResetPassword() {
+      const newPassword = document.getElementById('newPassword').value;
+      const confirm     = document.getElementById('confirmPassword').value;
+      const errEl       = document.getElementById('forgotStep2Error');
+      errEl.style.display = 'none';
+
+      if (newPassword.length < 6) {
+        errEl.textContent = '新密碼至少需要 6 個字元';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (newPassword !== confirm) {
+        errEl.textContent = '兩次輸入的密碼不一致';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res  = await fetch(`${API_BASE}/users/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: forgotUserId, email: forgotEmail, newPassword })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          closeForgotPassword();
+          const alertEl = document.getElementById('alert');
+          alertEl.className = 'alert success';
+          alertEl.textContent = '密碼重設成功！請使用新密碼登入';
+          alertEl.style.display = 'block';
+        } else {
+          errEl.textContent = data.message || '重設失敗，請重新嘗試';
+          errEl.style.display = 'block';
+        }
+      } catch (err) {
+        errEl.textContent = '伺服器錯誤，請稍後再試';
+        errEl.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>
